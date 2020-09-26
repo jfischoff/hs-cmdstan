@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 98b76d221fe13d52ae9c74c5ecf4d9cd8dc418f03a6b607fda17841931711e52
+-- hash: 668dc90772ce70a03c549ea998fe80b849215abe41852fdec3a3644e26b47c32
 
 name:           hs-cmdstan
 version:        0.1.0.0
@@ -27,25 +27,18 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      CmdStan
   other-modules:
       Paths_hs_cmdstan
   hs-source-dirs:
       src
+  default-extensions: RecordWildCards
+  ghc-options: -Wall
   build-depends:
-      base >=4.7 && <5
-  default-language: Haskell2010
-
-executable hs-cmdstan-exe
-  main-is: Main.hs
-  other-modules:
-      Paths_hs_cmdstan
-  hs-source-dirs:
-      app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      base >=4.7 && <5
-    , hs-cmdstan
+      async
+    , base >=4.7 && <5
+    , directory
+    , process
   default-language: Haskell2010
 
 test-suite hs-cmdstan-test
@@ -55,8 +48,12 @@ test-suite hs-cmdstan-test
       Paths_hs_cmdstan
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  default-extensions: RecordWildCards
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      async
+    , base >=4.7 && <5
+    , directory
     , hs-cmdstan
+    , process
   default-language: Haskell2010
