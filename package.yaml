@@ -24,12 +24,22 @@ dependencies:
 - directory
 - process
 - async
+- temporary
+- unix
+- cassava
+- attoparsec
+- filepath
+- megaparsec
+- containers
 
 ghc-options:
 - -Wall
 
 default-extensions:
 - RecordWildCards
+- LambdaCase
+- DeriveGeneric
+- QuasiQuotes
 
 library:
   source-dirs: src
@@ -44,3 +54,6 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - hs-cmdstan
+    - hspec
+    - megaparsec
+    - here
