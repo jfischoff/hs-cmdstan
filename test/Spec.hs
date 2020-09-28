@@ -1,4 +1,4 @@
-import CmdStan
+import CmdStan.SummaryParser
 import Test.Hspec
 import Control.Exception
 import Text.Megaparsec

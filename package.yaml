@@ -23,11 +23,6 @@ dependencies:
 - base >= 4.7 && < 5
 - directory
 - process
-- async
-- temporary
-- unix
-- cassava
-- attoparsec
 - filepath
 - megaparsec
 - containers
@@ -43,6 +38,18 @@ default-extensions:
 
 library:
   source-dirs: src
+
+executables:
+  example:
+    main: Main.hs
+    source-dirs: examples
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hs-cmdstan
+    - async
 
 tests:
   hs-cmdstan-test:

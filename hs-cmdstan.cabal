@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7bf02d7f3a04208f7d5968b54c7fe1df2dcf5a68c80a0ef042fc3298226bde13
+-- hash: 531da184b34bd8ae1796cbe3110a975284abcc3cec1eba01552157d546d25659
 
 name:           hs-cmdstan
 version:        0.1.0.0
@@ -28,6 +28,8 @@ source-repository head
 library
   exposed-modules:
       CmdStan
+      CmdStan.SummaryParser
+      CmdStan.Types
   other-modules:
       Paths_hs_cmdstan
   hs-source-dirs:
@@ -35,17 +37,31 @@ library
   default-extensions: RecordWildCards LambdaCase DeriveGeneric QuasiQuotes
   ghc-options: -Wall
   build-depends:
-      async
-    , attoparsec
-    , base >=4.7 && <5
-    , cassava
+      base >=4.7 && <5
     , containers
     , directory
     , filepath
     , megaparsec
     , process
-    , temporary
-    , unix
+  default-language: Haskell2010
+
+executable example
+  main-is: Main.hs
+  other-modules:
+      Paths_hs_cmdstan
+  hs-source-dirs:
+      examples
+  default-extensions: RecordWildCards LambdaCase DeriveGeneric QuasiQuotes
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      async
+    , base >=4.7 && <5
+    , containers
+    , directory
+    , filepath
+    , hs-cmdstan
+    , megaparsec
+    , process
   default-language: Haskell2010
 
 test-suite hs-cmdstan-test
@@ -58,10 +74,7 @@ test-suite hs-cmdstan-test
   default-extensions: RecordWildCards LambdaCase DeriveGeneric QuasiQuotes
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      async
-    , attoparsec
-    , base >=4.7 && <5
-    , cassava
+      base >=4.7 && <5
     , containers
     , directory
     , filepath
@@ -70,6 +83,4 @@ test-suite hs-cmdstan-test
     , hspec
     , megaparsec
     , process
-    , temporary
-    , unix
   default-language: Haskell2010
