@@ -1,9 +1,12 @@
 module CmdStan
   (
-    -- * Compilation
-    CompilationConfig (..)
-  , makeDefaultCompilationConfig
-  , compile
+  -- * make
+    makeDefaultMakeConfig
+  , make
+  -- * stanc
+  , StancConfig (..)
+  , makeDefaultStancConfig
+  , stanc
   -- * Stan
   , Method (..)
   , Initialization (..)
@@ -30,14 +33,44 @@ import System.IO
 import Control.Monad
 import CmdStan.SummaryParser
 import CmdStan.Types
+import System.Directory
+import System.Environment
 
 throwWhenExitFailure :: ExitCode -> IO ()
 throwWhenExitFailure = \case
   ExitSuccess -> pure ()
   e@ExitFailure {} -> throwIO e
 
-makeDefaultCompilationConfig :: FilePath -> CompilationConfig
-makeDefaultCompilationConfig modelFilePath = CompilationConfig
+makeDefaultMakeConfig :: FilePath -> IO MakeConfig
+makeDefaultMakeConfig rootPath = do
+  cmdStanDir <- maybe (throwIO $ userError "CMDSTAN_DIR not defined") pure =<<
+    lookupEnv "CMDSTAN_DIR"
+
+  canonicalPath <- canonicalizePath rootPath
+
+  pure $ MakeConfig
+    { stancFlags = Nothing
+    , userHeader = Nothing
+    , jobCount   = Nothing
+    , rootPath   = canonicalPath
+    , cmdStanDir = cmdStanDir
+    }
+
+makeConfigToCmdLine :: MakeConfig -> String
+makeConfigToCmdLine MakeConfig {..} = unwords
+  [ maybe "" ("USER_HEADER="<>) userHeader
+  , maybe "" (\x -> "STANCFLAGS=\"" <> stancConfigToCmdLine x <> "\"") stancFlags
+  , "make"
+  , maybe "" (\x -> "-j" <> show x) jobCount
+  , rootPath
+  ]
+
+make :: MakeConfig -> IO ()
+make config@MakeConfig {..} = throwWhenExitFailure <=< withCurrentDirectory cmdStanDir $
+  system $ makeConfigToCmdLine config
+
+makeDefaultStancConfig :: FilePath -> StancConfig
+makeDefaultStancConfig modelFilePath = StancConfig
   { modelName       = Nothing
   , modelFilePath   = modelFilePath
   , outputCppFile   = dropExtension modelFilePath <.> "hpp"
@@ -51,8 +84,8 @@ makeDefaultCompilationConfig modelFilePath = CompilationConfig
   , warnUnitialized = False
   }
 
-compilationConfigToCmdLine :: CompilationConfig -> FilePath
-compilationConfigToCmdLine CompilationConfig {..} = unwords
+stancConfigToCmdLine :: StancConfig -> FilePath
+stancConfigToCmdLine StancConfig {..} = unwords
   [ "stanc"
   , maybe "" ("--name=" <>) modelName
   , "--o=" <> outputCppFile
@@ -67,8 +100,8 @@ compilationConfigToCmdLine CompilationConfig {..} = unwords
   , modelFilePath
   ]
 
-compile :: CompilationConfig -> IO ()
-compile = throwWhenExitFailure <=< system . compilationConfigToCmdLine
+stanc :: StancConfig -> IO ()
+stanc = throwWhenExitFailure <=< system . stancConfigToCmdLine
 
 makeDefaultSummaryConfig :: [FilePath] -> StansummaryConfig
 makeDefaultSummaryConfig files = StansummaryConfig
@@ -81,6 +114,7 @@ makeDefaultSummaryConfig files = StansummaryConfig
 
 stansummaryConfigToCmdLine :: StansummaryConfig -> [String]
 stansummaryConfigToCmdLine StansummaryConfig {..} =
+  filter (not . null)
   [ maybe "" (\x -> "--autocorr=" <> show x) autocorr
   , maybe "" ("--csv_filename=" <>) csvFilePath
   , if null percentiles then "" else "--percentiles=" <> intercalate "," (map show percentiles)
@@ -89,7 +123,7 @@ stansummaryConfigToCmdLine StansummaryConfig {..} =
 
 stansummary :: StansummaryConfig -> IO StanSummary
 stansummary config = do
-  (exitCode, output, err) <- readProcessWithExitCode "statsummary" (stansummaryConfigToCmdLine config) ""
+  (exitCode, output, err) <- readProcessWithExitCode "stansummary" (stansummaryConfigToCmdLine config) ""
   hPutStrLn stderr err
   case exitCode of
     ExitFailure {} -> throwIO exitCode

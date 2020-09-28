@@ -1,4 +1,5 @@
 import CmdStan.SummaryParser
+import CmdStan.Types
 import Test.Hspec
 import Control.Exception
 import Text.Megaparsec
@@ -180,7 +181,8 @@ convergence, R_hat=1).
       |]
 
       show (parseStanSummary input) `shouldBe` show (Right StanSummary
-          { inputFiles       = ["output1.csv", "output2.csv"]
+          { sPercentiles     = [5,50,95]
+          , inputFiles       = ["output1.csv", "output2.csv"]
           , inferenceModel   = "bernoulli_model"
           , chainInfo        = ChainInfo
             { chainCount      = 2
@@ -266,5 +268,6 @@ convergence, R_hat=1).
 
           , sampler          = "hmc with nuts"
           , autoCorrelations = Nothing
+          , unparsed = input
           }
         :: Either String StanSummary)
