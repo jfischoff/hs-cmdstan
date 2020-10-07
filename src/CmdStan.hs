@@ -11,6 +11,7 @@ module CmdStan
   , Method (..)
   , Initialization (..)
   , StanExeConfig (..)
+  , blankSampleConfig
   , makeDefaultSample
   , stan
   -- * Summary
@@ -21,6 +22,7 @@ module CmdStan
   , StansummaryConfig (..)
   , makeDefaultSummaryConfig
   , stansummary
+  , summaryCsvParser
   -- * diagnose
   , diagnose
   ) where
@@ -154,6 +156,19 @@ data StanExeConfig = StanExeConfig
   , randomSeed      :: Maybe Int
   , refreshInterval :: Maybe Int
   , processId       :: Maybe Int
+  , numSamples      :: Maybe Int
+  } deriving (Show, Eq)
+
+blankSampleConfig :: StanExeConfig
+blankSampleConfig = StanExeConfig
+  { method          = Sample Nothing
+  , inputData       = Nothing
+  , output          = Nothing
+  , initialValues   = Nothing
+  , randomSeed      = Nothing
+  , refreshInterval = Nothing
+  , processId       = Nothing
+  , numSamples      = Nothing
   }
 
 makeDefaultSample :: FilePath -> Int -> StanExeConfig
@@ -164,12 +179,14 @@ makeDefaultSample rootPath chainIndex = StanExeConfig
   , initialValues   = Nothing
   , randomSeed      = Nothing
   , refreshInterval = Nothing
+  , numSamples      = Nothing
   , processId       = Just chainIndex
   }
 
 toStanExeCmdLine :: StanExeConfig -> String
 toStanExeCmdLine StanExeConfig {..} = unwords
   [ methodToCmdLine method
+  , maybe "" (\x -> "num_samples=" <> show x) numSamples
   , maybe "" ("data file=" <>) inputData
   , maybe "" ("output file=" <>) output
   , maybe "" initializationToCmdLine initialValues

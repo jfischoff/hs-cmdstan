@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 531da184b34bd8ae1796cbe3110a975284abcc3cec1eba01552157d546d25659
+-- hash: 08540fdf7271c5556b8c867a6eaacddbc8f276934c0c2b4ff4b9ce5d80586358
 
 name:           hs-cmdstan
 version:        0.1.0.0
@@ -34,7 +34,7 @@ library
       Paths_hs_cmdstan
   hs-source-dirs:
       src
-  default-extensions: RecordWildCards LambdaCase DeriveGeneric QuasiQuotes
+  default-extensions: RecordWildCards LambdaCase DeriveGeneric QuasiQuotes TupleSections
   ghc-options: -Wall
   build-depends:
       base >=4.7 && <5
@@ -51,7 +51,7 @@ executable example
       Paths_hs_cmdstan
   hs-source-dirs:
       examples
-  default-extensions: RecordWildCards LambdaCase DeriveGeneric QuasiQuotes
+  default-extensions: RecordWildCards LambdaCase DeriveGeneric QuasiQuotes TupleSections
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       async
@@ -71,7 +71,7 @@ test-suite hs-cmdstan-test
       Paths_hs_cmdstan
   hs-source-dirs:
       test
-  default-extensions: RecordWildCards LambdaCase DeriveGeneric QuasiQuotes
+  default-extensions: RecordWildCards LambdaCase DeriveGeneric QuasiQuotes TupleSections
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

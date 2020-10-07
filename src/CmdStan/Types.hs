@@ -58,6 +58,7 @@ data AutoCorrelations = AutoCorrelations
 data StanSummary = StanSummary
   { sPercentiles     :: [Int]
   , inputFiles       :: [FilePath]
+  , outputFile       :: Maybe FilePath
   , inferenceModel   :: String
   , chainInfo        :: ChainInfo
   , warmupTimes      :: [Double]
@@ -89,8 +90,10 @@ data Method
   | Variational { diagnosticFile :: Maybe FilePath }
   | GenerateQuantities
   | Diagnose
+  deriving (Show, Eq, Ord, Generic)
 
 data Initialization
   = IRealValue Double
   | IZero
   | IFilePath FilePath
+  deriving (Show, Eq, Ord, Generic)

@@ -10,6 +10,9 @@ import Control.Arrow
 import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Function
 
+readMay :: Read a => String -> Maybe a
+readMay = foldr (\(x, _) _ -> Just x) Nothing . reads
+
 myFloat :: Parsec String String Double
 myFloat = L.signed space (try L.float <|> fmap fromIntegral (L.decimal :: Parsec String String Int) <|> string "nan" *> pure (0.0/0.0))
 
@@ -50,6 +53,14 @@ parseInputFiles = do
   void $ string "Input file: " <|> string "Input files: "
   someTill (satisfy $ const True)
     (lookAhead $ void (char ',') <|> void (char '\n') <|> eof) `sepBy1` (char ',' *> space)
+
+-- Input file: output.csv
+parseOutputFile :: Parsec String String FilePath
+parseOutputFile = do
+  void $ string "Ouput csv_file: "
+  someTill (satisfy $ const True)
+    (lookAhead $ void (char '\n') <|> eof)
+
 
 parseInferenceModel :: Parsec String String String
 parseInferenceModel = do
@@ -223,6 +234,8 @@ parseStanSummary input = left show $ parse theParser "" input where
   theParser = do
     inputFiles     <- parseInputFiles <?> "Parse Input Files"
     space
+    outputFile     <- optional (parseOutputFile <?> "Parse Output Files")
+    space
     sPercentiles   <- percentilesParser <?> "Parse Percentiles"
     space
     inferenceModel <- parseInferenceModel <?> "Parse Inference Model"
@@ -247,4 +260,82 @@ parseStanSummary input = left show $ parse theParser "" input where
     space
     autoCorrelations <- optional parseAutcorreltations <?> "Parse autocorrelation"
     let unparsed = input
+    pure StanSummary {..}
+
+
+
+-------------------------------------------------------------------------------
+--- CSV Parser
+-------------------------------------------------------------------------------
+
+commaSeparated :: Parsec String String [String]
+commaSeparated = someTill (satisfy $ const True)
+  (lookAhead $ void (char ',') <|> void (char '\n') <|> eof)
+   `sepBy1` (char ',' *> space)
+
+-- [name,Mean,MCSE,StdDev,5%,50%,95%,N_Eff,N_Eff/s,R_hat]
+toPercentiles :: [String] -> Parsec String String [Int]
+toPercentiles
+  = mapM (\x -> maybe (fail $ "failed to parse " <> x) pure . readMay $ init x)
+  . reverse
+  . drop 3
+  . reverse
+  . drop 4
+
+toDoubleList :: [String] -> Parsec String String [Double]
+toDoubleList xs = forM xs $ \a ->
+  maybe (fail $ "failed to parse as Double " ++ show a) pure $ readMay a
+
+toStanStatistic :: [Double] -> Parsec String String StanStatistic
+toStanStatistic xs = case xs of
+  mean:mcse:stdDev:xs' -> case reverse xs' of
+    rHat:effPerSecond:numberOfEff:xs'' -> do
+      let percents = reverse xs''
+      pure StanStatistic {..}
+    _ -> fail $ "Could not turn Double list into StanStatistic with " ++ show xs
+  _ -> fail $ "Could not turn Double list into StanStatistic with " ++ show xs
+
+toNamedStanStatistic :: String -> [String] -> Parsec String String StanStatistic
+toNamedStanStatistic name = \case
+  [] -> fail "empty stan statistic"
+  x:xs
+    | x == name -> toStanStatistic =<< toDoubleList xs
+    | otherwise -> fail $ "expected name " ++ show name ++ " but got " ++ show x
+
+toParamStanStatistic :: [String] -> Parsec String String (String, StanStatistic)
+toParamStanStatistic = \case
+  [] -> fail "empty stan statistic"
+  x:xs -> fmap (x,) $ toStanStatistic =<< toDoubleList xs
+
+summaryCsvParser :: String -> Either String StanSummary
+summaryCsvParser input = left show $ parse theParser "" input where
+  theParser = do
+    sPercentiles   <- toPercentiles =<< commaSeparated
+    logProbability <- toNamedStanStatistic "lp__" =<< commaSeparated
+    acceptance     <- toNamedStanStatistic "accept_stat__" =<< commaSeparated
+    stepSize       <- toNamedStanStatistic "stepsize__" =<< commaSeparated
+    treeDepth      <- toNamedStanStatistic "treedepth__" =<< commaSeparated
+    leapFrog       <- toNamedStanStatistic "n_leapfrog__" =<< commaSeparated
+    divergent      <- toNamedStanStatistic "divergent__" =<< commaSeparated
+    energy         <- toNamedStanStatistic "energy__" =<< commaSeparated
+    paramStats     <- fmap Map.fromList $ manyTill (toParamStanStatistic =<< commaSeparated)
+      (lookAhead $ void (char '#') <|> eof)
+    inferenceModel <- char '#' *> parseInferenceModel <* space
+    chainInfo      <- char '#' *> parseChainInfo <?> "Parse Chain Info"
+    space
+    void $ char '#' *> space
+    warmupTimes    <- char '#' *> parseWarmupTimes <?> "Parse Warmup Times"
+    space
+    samplingTimes  <- char '#' *> parseSamplingTimes <?> "Parse Sampling Times"
+    space
+    sampler        <- char '#' *> parseSampler <?> "Parse parameter stats"
+    space
+
+    -- TODO parse autocorrelations
+    let
+      inputFiles = []
+      outputFile = Nothing
+      autoCorrelations = Nothing
+      unparsed = input
+
     pure StanSummary {..}
