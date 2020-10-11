@@ -148,17 +148,6 @@ initializationToCmdLine x = "init=" <> case x of
   IZero -> "0"
   IFilePath filePath -> filePath
 
-data StanExeConfig = StanExeConfig
-  { method          :: Method
-  , inputData       :: Maybe FilePath
-  , output          :: Maybe FilePath
-  , initialValues   :: Maybe Initialization
-  , randomSeed      :: Maybe Int
-  , refreshInterval :: Maybe Int
-  , processId       :: Maybe Int
-  , numSamples      :: Maybe Int
-  } deriving (Show, Eq)
-
 blankSampleConfig :: StanExeConfig
 blankSampleConfig = StanExeConfig
   { method          = Sample Nothing

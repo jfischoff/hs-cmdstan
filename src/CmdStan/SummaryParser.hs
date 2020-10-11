@@ -269,9 +269,12 @@ parseStanSummary input = left show $ parse theParser "" input where
 -------------------------------------------------------------------------------
 
 commaSeparated :: Parsec String String [String]
-commaSeparated = someTill (satisfy $ const True)
-  (lookAhead $ void (char ',') <|> void (char '\n') <|> eof)
-   `sepBy1` (char ',' *> space)
+commaSeparated = do
+  res <- someTill (satisfy $ const True)
+    (lookAhead $ void (char ',') <|> void (char '\n') <|> eof)
+      `sepBy1` (char ',' *> space)
+  space
+  pure res
 
 -- [name,Mean,MCSE,StdDev,5%,50%,95%,N_Eff,N_Eff/s,R_hat]
 toPercentiles :: [String] -> Parsec String String [Int]
@@ -284,7 +287,8 @@ toPercentiles
 
 toDoubleList :: [String] -> Parsec String String [Double]
 toDoubleList xs = forM xs $ \a ->
-  maybe (fail $ "failed to parse as Double " ++ show a) pure $ readMay a
+  maybe (fail $ "failed to parse as Double " ++ show a) pure $ readMay a <|>
+    (if a == "nan" then Just (0.0/0.0) else Nothing)
 
 toStanStatistic :: [Double] -> Parsec String String StanStatistic
 toStanStatistic xs = case xs of
@@ -299,7 +303,7 @@ toNamedStanStatistic :: String -> [String] -> Parsec String String StanStatistic
 toNamedStanStatistic name = \case
   [] -> fail "empty stan statistic"
   x:xs
-    | x == name -> toStanStatistic =<< toDoubleList xs
+    | x == name || x == ("\"" ++ name ++ "\"") -> toStanStatistic =<< toDoubleList xs
     | otherwise -> fail $ "expected name " ++ show name ++ " but got " ++ show x
 
 toParamStanStatistic :: [String] -> Parsec String String (String, StanStatistic)
@@ -320,15 +324,15 @@ summaryCsvParser input = left show $ parse theParser "" input where
     energy         <- toNamedStanStatistic "energy__" =<< commaSeparated
     paramStats     <- fmap Map.fromList $ manyTill (toParamStanStatistic =<< commaSeparated)
       (lookAhead $ void (char '#') <|> eof)
-    inferenceModel <- char '#' *> parseInferenceModel <* space
-    chainInfo      <- char '#' *> parseChainInfo <?> "Parse Chain Info"
+    inferenceModel <- char '#' *> space *> parseInferenceModel <* space
+    chainInfo      <- char '#' *> space *> parseChainInfo <?> "Parse Chain Info"
     space
     void $ char '#' *> space
-    warmupTimes    <- char '#' *> parseWarmupTimes <?> "Parse Warmup Times"
+    warmupTimes    <- char '#' *> space *> parseWarmupTimes <?> "Parse Warmup Times"
     space
-    samplingTimes  <- char '#' *> parseSamplingTimes <?> "Parse Sampling Times"
+    samplingTimes  <- char '#' *> space *> parseSamplingTimes <?> "Parse Sampling Times"
     space
-    sampler        <- char '#' *> parseSampler <?> "Parse parameter stats"
+    sampler        <- char '#' *> space *> parseSampler <?> "Parse parameter stats"
     space
 
     -- TODO parse autocorrelations

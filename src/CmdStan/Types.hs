@@ -1,6 +1,7 @@
 module CmdStan.Types where
 import GHC.Generics
 import Data.Map.Strict (Map)
+import Data.Aeson
 
 data MakeConfig = MakeConfig
   { stancFlags :: Maybe StancConfig
@@ -32,6 +33,9 @@ data ChainInfo = ChainInfo
   , savedIterations :: Int
   } deriving (Show, Eq, Ord, Generic)
 
+instance ToJSON ChainInfo
+instance FromJSON ChainInfo
+
 data StanStatistic = StanStatistic
   { mean         :: Double
   , mcse         :: Double
@@ -41,6 +45,9 @@ data StanStatistic = StanStatistic
   , effPerSecond :: Double
   , rHat         :: Double
   } deriving (Show, Eq, Ord, Generic)
+
+instance ToJSON StanStatistic
+instance FromJSON StanStatistic
 
 data AutoCorrelations = AutoCorrelations
   { chainIndex         :: Int
@@ -53,7 +60,10 @@ data AutoCorrelations = AutoCorrelations
   , aDivergent         :: [Double]
   , aEnergy            :: [Double]
   , aParams            :: Map String [Double]
-  } deriving (Show, Eq, Ord)
+  } deriving (Show, Eq, Ord, Generic)
+
+instance ToJSON AutoCorrelations
+instance FromJSON AutoCorrelations
 
 data StanSummary = StanSummary
   { sPercentiles     :: [Int]
@@ -76,6 +86,9 @@ data StanSummary = StanSummary
   , unparsed         :: String
   } deriving (Show, Eq, Ord, Generic)
 
+instance ToJSON StanSummary
+instance FromJSON StanSummary
+
 data StansummaryConfig = StansummaryConfig
   { sampleFiles :: [FilePath]
   , autocorr    :: Maybe Int
@@ -92,8 +105,28 @@ data Method
   | Diagnose
   deriving (Show, Eq, Ord, Generic)
 
+instance ToJSON Method
+instance FromJSON Method
+
 data Initialization
   = IRealValue Double
   | IZero
   | IFilePath FilePath
   deriving (Show, Eq, Ord, Generic)
+
+instance ToJSON Initialization
+instance FromJSON Initialization
+
+data StanExeConfig = StanExeConfig
+  { method          :: Method
+  , inputData       :: Maybe FilePath
+  , output          :: Maybe FilePath
+  , initialValues   :: Maybe Initialization
+  , randomSeed      :: Maybe Int
+  , refreshInterval :: Maybe Int
+  , processId       :: Maybe Int
+  , numSamples      :: Maybe Int
+  } deriving (Show, Eq, Ord, Generic)
+
+instance ToJSON StanExeConfig
+instance FromJSON StanExeConfig

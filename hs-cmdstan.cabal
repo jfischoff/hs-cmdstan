@@ -43,6 +43,7 @@ library
     , filepath
     , megaparsec
     , process
+    , aeson
   default-language: Haskell2010
 
 executable example
