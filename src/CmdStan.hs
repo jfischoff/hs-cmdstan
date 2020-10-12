@@ -23,8 +23,11 @@ module CmdStan
   , makeDefaultSummaryConfig
   , stansummary
   , summaryCsvParser
-  -- * diagnose
+  -- * diagnose  
   , diagnose
+  -- * DELETE ME
+  , stansummaryConfigToCmdLine
+  , toStanExeCmdLine
   ) where
 import System.Process
 import System.Exit
@@ -112,6 +115,7 @@ makeDefaultSummaryConfig files = StansummaryConfig
   , csvFilePath = Nothing
   , percentiles = [5, 50, 95]
   , sigFigs     = Nothing
+  , exePath     = Nothing
   }
 
 stansummaryConfigToCmdLine :: StansummaryConfig -> [String]
@@ -125,7 +129,8 @@ stansummaryConfigToCmdLine StansummaryConfig {..} =
 
 stansummary :: StansummaryConfig -> IO StanSummary
 stansummary config = do
-  (exitCode, output, err) <- readProcessWithExitCode "stansummary" (stansummaryConfigToCmdLine config) ""
+  let path = maybe "stansummary" id (exePath config) 
+  (exitCode, output, err) <- readProcessWithExitCode path (stansummaryConfigToCmdLine config) ""
   hPutStrLn stderr err
   case exitCode of
     ExitFailure {} -> throwIO exitCode
@@ -158,6 +163,7 @@ blankSampleConfig = StanExeConfig
   , refreshInterval = Nothing
   , processId       = Nothing
   , numSamples      = Nothing
+  , numWarmup       = Nothing
   }
 
 makeDefaultSample :: FilePath -> Int -> StanExeConfig
@@ -169,6 +175,7 @@ makeDefaultSample rootPath chainIndex = StanExeConfig
   , randomSeed      = Nothing
   , refreshInterval = Nothing
   , numSamples      = Nothing
+  , numWarmup       = Nothing
   , processId       = Just chainIndex
   }
 
@@ -176,6 +183,7 @@ toStanExeCmdLine :: StanExeConfig -> String
 toStanExeCmdLine StanExeConfig {..} = unwords
   [ methodToCmdLine method
   , maybe "" (\x -> "num_samples=" <> show x) numSamples
+  , maybe "" (\x -> "num_warmup=" <> show x) numWarmup
   , maybe "" ("data file=" <>) inputData
   , maybe "" ("output file=" <>) output
   , maybe "" initializationToCmdLine initialValues
