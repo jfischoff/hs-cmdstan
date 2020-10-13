@@ -21,6 +21,7 @@ module CmdStan
   , StanSummary (..)
   , StansummaryConfig (..)
   , makeDefaultSummaryConfig
+  , useCmdStanDirForStansummary
   , stansummary
   , summaryCsvParser
   -- * diagnose  
@@ -117,6 +118,13 @@ makeDefaultSummaryConfig files = StansummaryConfig
   , sigFigs     = Nothing
   , exePath     = Nothing
   }
+
+useCmdStanDirForStansummary :: StansummaryConfig -> IO StansummaryConfig
+useCmdStanDirForStansummary s = do
+  cmdStanDir <- maybe (throwIO $ userError "CMDSTAN_DIR not defined") pure =<<
+    lookupEnv "CMDSTAN_DIR"
+  return $ s { exePath = Just $ cmdStanDir ++ "/bin/stansummary" }
+    
 
 stansummaryConfigToCmdLine :: StansummaryConfig -> [String]
 stansummaryConfigToCmdLine StansummaryConfig {..} =
