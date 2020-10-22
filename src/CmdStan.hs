@@ -29,6 +29,7 @@ module CmdStan
   -- * DELETE ME
   , stansummaryConfigToCmdLine
   , toStanExeCmdLine
+  , makeConfigToCmdLine
   ) where
 import System.Process
 import System.Exit
@@ -65,14 +66,14 @@ makeDefaultMakeConfig rootPath = do
 makeConfigToCmdLine :: MakeConfig -> String
 makeConfigToCmdLine MakeConfig {..} = unwords
   [ maybe "" ("USER_HEADER="<>) userHeader
-  , maybe "" (\x -> "STANCFLAGS=\"" <> stancConfigToCmdLine x <> "\"") stancFlags
+  , maybe "" (\x -> "STANCFLAGS=\"" <> stancConfigToCmdLine True x <> "\"") stancFlags
   , "make"
   , maybe "" (\x -> "-j" <> show x) jobCount
   , rootPath
   ]
 
 make :: MakeConfig -> IO ()
-make config@MakeConfig {..} = throwWhenExitFailure <=< withCurrentDirectory cmdStanDir $
+make config@MakeConfig {..} = throwWhenExitFailure <=< withCurrentDirectory cmdStanDir $ do
   system $ makeConfigToCmdLine config
 
 makeDefaultStancConfig :: FilePath -> StancConfig
@@ -90,9 +91,9 @@ makeDefaultStancConfig modelFilePath = StancConfig
   , warnUnitialized = False
   }
 
-stancConfigToCmdLine :: StancConfig -> FilePath
-stancConfigToCmdLine StancConfig {..} = unwords
-  [ "stanc"
+stancConfigToCmdLine :: Bool -> StancConfig -> FilePath
+stancConfigToCmdLine forMake StancConfig {..} = unwords
+  [ if not forMake then "stanc" else ""
   , maybe "" ("--name=" <>) modelName
   , "--o=" <> outputCppFile
   , if allowUndefined then "--allow-undefined" else ""
@@ -103,11 +104,11 @@ stancConfigToCmdLine StancConfig {..} = unwords
   , if printCpp then "--print-cpp" else ""
   , if allOptimization then "--O" else ""
   , if warnUnitialized then "--warn-uninitialized" else ""
-  , modelFilePath
+  , if not forMake then modelFilePath else ""
   ]
 
 stanc :: StancConfig -> IO ()
-stanc = throwWhenExitFailure <=< system . stancConfigToCmdLine
+stanc = throwWhenExitFailure <=< system . stancConfigToCmdLine False
 
 makeDefaultSummaryConfig :: [FilePath] -> StansummaryConfig
 makeDefaultSummaryConfig files = StansummaryConfig

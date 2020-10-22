@@ -14,7 +14,13 @@ readMay :: Read a => String -> Maybe a
 readMay = foldr (\(x, _) _ -> Just x) Nothing . reads
 
 myFloat :: Parsec String String Double
-myFloat = L.signed space (try L.float <|> fmap fromIntegral (L.decimal :: Parsec String String Int) <|> string "nan" *> pure (0.0/0.0))
+myFloat = L.signed space (try L.float
+                          <|> fmap fromIntegral (L.decimal :: Parsec String String Int)
+                          <|> (string "nan" *> pure (0.0/0.0))
+                          <|> (string "inf" *> pure (0.0/0.0))
+                          <|> (string "+inf" *> pure (0.0/0.0))
+                          <|> (string "-inf" *> pure (negate $ 0.0/0.0))
+                         )
 
 {-
 Input file: output.csv
