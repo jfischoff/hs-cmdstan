@@ -14,7 +14,10 @@ readMay :: Read a => String -> Maybe a
 readMay = foldr (\(x, _) _ -> Just x) Nothing . reads
 
 myFloat :: Parsec String String Double
-myFloat = L.signed space (try L.float <|> fmap fromIntegral (L.decimal :: Parsec String String Int) <|> string "nan" *> pure (0.0/0.0))
+myFloat = L.signed space (try L.float <|> fmap fromIntegral (L.decimal :: Parsec String String Int)
+                                      <|> (string "nan" *> pure (0.0/0.0))
+                                      <|> (string "inf" *> pure (1.0/0.0))
+                         )
 
 {-
 Input file: output.csv
@@ -161,8 +164,7 @@ parseStatisticMap = fmap Map.fromList $ fix $ \next -> do
 parseSampler :: Parsec String String String
 parseSampler = do
   void $ string "Samples were drawn using "
-  result <- string "hmc with nuts"
-  void $ char '.'
+  result <- someTill (satisfy $ const True) $ char '.'
   pure result
 
 {-

@@ -12,6 +12,7 @@ module CmdStan
   , Initialization (..)
   , StanExeConfig (..)
   , blankSampleConfig
+  , blankOptimizeConfig
   , makeDefaultSample
   , stan
   -- * Summary
@@ -25,6 +26,7 @@ module CmdStan
   , summaryCsvParser
   -- * diagnose
   , diagnose
+  , readOptimizeCsv
   ) where
 import System.Process
 import System.Exit
@@ -33,10 +35,13 @@ import System.FilePath.Posix
 import Control.Exception
 import System.IO
 import Control.Monad
+import CmdStan.Csv
 import CmdStan.SummaryParser
 import CmdStan.Types
 import System.Directory
 import System.Environment
+import Data.Map.Strict (Map)
+
 
 throwWhenExitFailure :: ExitCode -> IO ()
 throwWhenExitFailure = \case
@@ -123,13 +128,13 @@ stansummaryConfigToCmdLine StansummaryConfig {..} =
   , maybe "" (\x -> "--sig_figs=" <> show x) sigFigs
   ] ++ sampleFiles
 
-stansummary :: StansummaryConfig -> IO StanSummary
+stansummary :: StansummaryConfig -> IO (Either String StanSummary)
 stansummary config = do
   (exitCode, output, err) <- readProcessWithExitCode "stansummary" (stansummaryConfigToCmdLine config) ""
   hPutStrLn stderr err
   case exitCode of
     ExitFailure {} -> throwIO exitCode
-    ExitSuccess {} -> either (throwIO . userError) pure $ parseStanSummary output
+    ExitSuccess {} -> pure $ parseStanSummary output
 
 diagnose :: [FilePath] -> IO ()
 diagnose sampleFilePaths = throwWhenExitFailure =<< system ("diagnose " <> unwords sampleFilePaths)
@@ -147,6 +152,18 @@ initializationToCmdLine x = "init=" <> case x of
   IRealValue value -> show value
   IZero -> "0"
   IFilePath filePath -> filePath
+
+blankOptimizeConfig :: StanExeConfig
+blankOptimizeConfig = StanExeConfig
+  { method          = Optimize
+  , inputData       = Nothing
+  , output          = Nothing
+  , initialValues   = Nothing
+  , randomSeed      = Nothing
+  , refreshInterval = Nothing
+  , processId       = Nothing
+  , numSamples      = Nothing
+  }
 
 blankSampleConfig :: StanExeConfig
 blankSampleConfig = StanExeConfig
@@ -187,3 +204,6 @@ toStanExeCmdLine StanExeConfig {..} = unwords
 stan :: FilePath -> StanExeConfig -> IO ()
 stan exeFilePath config =
   throwWhenExitFailure =<< system (exeFilePath <> " " <> toStanExeCmdLine config)
+
+readOptimizeCsv :: FilePath -> IO (Either String (Map String Double))
+readOptimizeCsv = singleRowCsv
