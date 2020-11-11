@@ -8,7 +8,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.HashMap.Strict as H
 import Control.Monad
-import Control.Exception
+-- import Control.Exception
 
 parseNamedRecordAsDoubles :: C.NamedRecord -> C.Parser (Map String Double)
 parseNamedRecordAsDoubles x = do
@@ -20,9 +20,19 @@ parseNamedRecordAsDoubles x = do
   pure $ M.fromList parsedPairs
 
 singleRowCsv :: FilePath -> IO (Either String (Map String Double))
-singleRowCsv filePath = fmap (fmap snd) $ foldCsvWithHeader parseNamedRecordAsDoubles filePath mempty $ \_ xs -> case xs of
+singleRowCsv filePath
+  = fmap (fmap snd) $ foldCsvWithHeader parseNamedRecordAsDoubles filePath mempty $ \acc xs -> pure $ foldr (<>) acc xs
+
+
+{-
+singleRowCsv :: FilePath -> IO (Either String (Map String Double))
+singleRowCsv filePath = fmap (fmap snd) $ foldCsvWithHeader parseNamedRecordAsDoubles filePath mempty $ \acc xs -> case xs of
+  [] -> throwIO $ userError "singleRowCsv called on zero row "
   [x] -> pure x
-  _   -> throwIO $ userError $ "singleRowCsv called with more than one row: " ++ show xs
+  x:xs
+   | all M.null xs -> pure x
+   | otherwise -> throwIO $ userError $ "singleRowCsv called with more than one row: " ++ show xs
+-}
 
 foldCsvWithHeader :: forall a r.
     (C.NamedRecord -> C.Parser a)
