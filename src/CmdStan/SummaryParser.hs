@@ -18,8 +18,8 @@ myFloat = L.signed space (try L.float
                           <|> fmap fromIntegral (L.decimal :: Parsec String String Int)
                           <|> (string "nan" *> pure (0.0/0.0))
                           <|> (string "inf" *> pure (0.0/0.0))
-                          <|> (string "+inf" *> pure (0.0/0.0))
-                          <|> (string "-inf" *> pure (negate $ 0.0/0.0))
+                          <|> (string "+inf" *> pure (1.0/0.0))
+                          <|> (string "-inf" *> pure (negate $ 1.0/0.0))
                          )
 
 {-
