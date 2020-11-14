@@ -14,9 +14,12 @@ readMay :: Read a => String -> Maybe a
 readMay = foldr (\(x, _) _ -> Just x) Nothing . reads
 
 myFloat :: Parsec String String Double
-myFloat = L.signed space (try L.float <|> fmap fromIntegral (L.decimal :: Parsec String String Int)
-                                      <|> (string "nan" *> pure (0.0/0.0))
-                                      <|> (string "inf" *> pure (1.0/0.0))
+myFloat = L.signed space (try L.float
+                          <|> fmap fromIntegral (L.decimal :: Parsec String String Int)
+                          <|> (string "nan" *> pure (0.0/0.0))
+                          <|> (string "inf" *> pure (0.0/0.0))
+                          <|> (string "+inf" *> pure (1.0/0.0))
+                          <|> (string "-inf" *> pure (negate $ 1.0/0.0))
                          )
 
 {-
@@ -51,6 +54,12 @@ percentilesParser = do
   (try (string "Percentiles: "  *> L.decimal `sepBy1` char ',')) <|> pure [5, 50, 95]
 
 -- Input file: output.csv
+parseSignificantDigits :: Parsec String String Int
+parseSignificantDigits = do
+  void $ string "Significant digits: "
+  L.decimal
+  
+-- Input file: output.csv
 parseInputFiles :: Parsec String String [FilePath]
 parseInputFiles = do
   void $ string "Input file: " <|> string "Input files: "
@@ -60,7 +69,7 @@ parseInputFiles = do
 -- Input file: output.csv
 parseOutputFile :: Parsec String String FilePath
 parseOutputFile = do
-  void $ string "Ouput csv_file: "
+  void $ string "Output csv_file: "
   someTill (satisfy $ const True)
     (lookAhead $ void (char '\n') <|> eof)
 
@@ -235,6 +244,8 @@ parseStanSummary :: String -> Either String StanSummary
 parseStanSummary input = left show $ parse theParser "" input where
   theParser = do
     inputFiles     <- parseInputFiles <?> "Parse Input Files"
+    space
+    _              <- optional parseSignificantDigits
     space
     outputFile     <- optional (parseOutputFile <?> "Parse Output Files")
     space
