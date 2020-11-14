@@ -54,6 +54,12 @@ percentilesParser = do
   (try (string "Percentiles: "  *> L.decimal `sepBy1` char ',')) <|> pure [5, 50, 95]
 
 -- Input file: output.csv
+parseSignificantDigits :: Parsec String String Int
+parseSignificantDigits = do
+  void $ string "Significant digits: "
+  L.decimal
+  
+-- Input file: output.csv
 parseInputFiles :: Parsec String String [FilePath]
 parseInputFiles = do
   void $ string "Input file: " <|> string "Input files: "
@@ -63,7 +69,7 @@ parseInputFiles = do
 -- Input file: output.csv
 parseOutputFile :: Parsec String String FilePath
 parseOutputFile = do
-  void $ string "Ouput csv_file: "
+  void $ string "Output csv_file: "
   someTill (satisfy $ const True)
     (lookAhead $ void (char '\n') <|> eof)
 
@@ -239,6 +245,8 @@ parseStanSummary :: String -> Either String StanSummary
 parseStanSummary input = left show $ parse theParser "" input where
   theParser = do
     inputFiles     <- parseInputFiles <?> "Parse Input Files"
+    space
+    _              <- optional parseSignificantDigits
     space
     outputFile     <- optional (parseOutputFile <?> "Parse Output Files")
     space
