@@ -69,7 +69,7 @@ parseInputFiles = do
 -- Input file: output.csv
 parseOutputFile :: Parsec String String FilePath
 parseOutputFile = do
-  void $ string "Output csv_file: "
+  void $ string "Ouput csv_file: "
   someTill (satisfy $ const True)
     (lookAhead $ void (char '\n') <|> eof)
 
