@@ -8,7 +8,6 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.HashMap.Strict as H
 import Control.Monad
--- import Control.Exception
 
 parseNamedRecordAsDoubles :: C.NamedRecord -> C.Parser (Map String Double)
 parseNamedRecordAsDoubles x = do

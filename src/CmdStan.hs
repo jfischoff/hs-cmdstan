@@ -27,6 +27,7 @@ module CmdStan
   -- * diagnose
   , diagnose
   , readOptimizeCsv
+  , optimizeCsvToInitialValues
   ) where
 import System.Process
 import System.Exit
@@ -41,6 +42,7 @@ import CmdStan.Types
 import System.Directory
 import System.Environment
 import Data.Map.Strict (Map)
+import Data.Function
 
 
 throwWhenExitFailure :: ExitCode -> IO ()
@@ -163,6 +165,7 @@ blankOptimizeConfig = StanExeConfig
   , refreshInterval = Nothing
   , processId       = Nothing
   , numSamples      = Nothing
+  , algorithm       = Nothing
   }
 
 blankSampleConfig :: StanExeConfig
@@ -175,6 +178,7 @@ blankSampleConfig = StanExeConfig
   , refreshInterval = Nothing
   , processId       = Nothing
   , numSamples      = Nothing
+  , algorithm       = Nothing
   }
 
 makeDefaultSample :: FilePath -> Int -> StanExeConfig
@@ -187,11 +191,13 @@ makeDefaultSample rootPath chainIndex = StanExeConfig
   , refreshInterval = Nothing
   , numSamples      = Nothing
   , processId       = Just chainIndex
+  , algorithm       = Nothing
   }
 
 toStanExeCmdLine :: StanExeConfig -> String
 toStanExeCmdLine StanExeConfig {..} = unwords
   [ methodToCmdLine method
+  , maybe "" (\x -> "algorithm=" <> show x) algorithm
   , maybe "" (\x -> "num_samples=" <> show x) numSamples
   , maybe "" ("data file=" <>) inputData
   , maybe "" ("output file=" <>) output
@@ -207,3 +213,41 @@ stan exeFilePath config =
 
 readOptimizeCsv :: FilePath -> IO (Either String (Map String Double))
 readOptimizeCsv = singleRowCsv
+
+skipHash :: Handle -> IO ()
+skipHash theHandle = fix $ \next -> do
+  -- no peek so I make my own
+  originalPos <- hGetPosn theHandle
+  currentChar <- hGetChar theHandle
+  hSetPosn originalPos
+  when (currentChar == '#') $ do
+    _ <- hGetLine theHandle
+    next
+
+skipUntil :: Char -> Handle -> IO ()
+skipUntil theChar theHandle = fix $ \next -> do
+  currentChar <- hGetChar theHandle
+  unless (currentChar == theChar) next
+
+copyUntil :: Char -> Handle -> Handle -> IO ()
+copyUntil theChar inputHandle outputHandle = fix $ \next -> do
+  currentChar <- hGetChar inputHandle
+  hPutChar outputHandle currentChar
+  unless (currentChar == theChar) next
+
+copyLineAfterComma :: Handle -> Handle -> IO ()
+copyLineAfterComma inputFile outputFile = do
+  skipUntil ',' inputFile
+  copyUntil '\n' inputFile outputFile
+
+-- Skip until not #
+-- Skip until ','
+-- copy the rest of the line
+-- Skip until ','
+-- copy the rest of the line
+-- done
+optimizeCsvToInitialValues :: FilePath -> FilePath -> IO ()
+optimizeCsvToInitialValues inputCsv outputCsv = withFile outputCsv WriteMode $ \outputFile -> do
+  withFile inputCsv ReadMode $ \inputFile -> do
+    skipHash inputFile
+    replicateM_ 2 $ copyLineAfterComma inputFile outputFile

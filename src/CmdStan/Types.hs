@@ -126,6 +126,7 @@ data StanExeConfig = StanExeConfig
   , refreshInterval :: Maybe Int
   , processId       :: Maybe Int
   , numSamples      :: Maybe Int
+  , algorithm       :: Maybe String
   } deriving (Show, Eq, Ord, Generic)
 
 instance ToJSON StanExeConfig
