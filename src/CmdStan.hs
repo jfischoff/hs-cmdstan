@@ -42,8 +42,7 @@ import CmdStan.Types
 import System.Directory
 import System.Environment
 import Data.Map.Strict (Map)
-import Data.Function
-
+import qualified Data.Aeson as A
 
 throwWhenExitFailure :: ExitCode -> IO ()
 throwWhenExitFailure = \case
@@ -143,9 +142,9 @@ diagnose sampleFilePaths = throwWhenExitFailure =<< system ("diagnose " <> unwor
 
 methodToCmdLine :: Method -> String
 methodToCmdLine = \case
-  Sample { .. } -> "sample" ++ maybe "" (" diagnostic_file=" <>) diagnosticFile
+  Sample -> "sample"
   Optimize -> "optimize"
-  Variational { .. } ->  "variational" ++ maybe "" ("diagnostic_file=" <>) diagnosticFile
+  Variational  ->  "variational"
   GenerateQuantities -> "generate_quantities"
   Diagnose -> "diagnose"
 
@@ -166,11 +165,12 @@ blankOptimizeConfig = StanExeConfig
   , processId       = Nothing
   , numSamples      = Nothing
   , algorithm       = Nothing
+  , diagnosticFile  = Nothing
   }
 
 blankSampleConfig :: StanExeConfig
 blankSampleConfig = StanExeConfig
-  { method          = Sample Nothing
+  { method          = Sample
   , inputData       = Nothing
   , output          = Nothing
   , initialValues   = Nothing
@@ -179,11 +179,12 @@ blankSampleConfig = StanExeConfig
   , processId       = Nothing
   , numSamples      = Nothing
   , algorithm       = Nothing
+  , diagnosticFile  = Nothing
   }
 
 makeDefaultSample :: FilePath -> Int -> StanExeConfig
 makeDefaultSample rootPath chainIndex = StanExeConfig
-  { method          = Sample Nothing
+  { method          = Sample
   , inputData       = Just $ rootPath <.> "json"
   , output          = Just $ rootPath <> "_" <> show chainIndex <.> "csv"
   , initialValues   = Nothing
@@ -192,6 +193,7 @@ makeDefaultSample rootPath chainIndex = StanExeConfig
   , numSamples      = Nothing
   , processId       = Just chainIndex
   , algorithm       = Nothing
+  , diagnosticFile  = Nothing
   }
 
 toStanExeCmdLine :: StanExeConfig -> String
@@ -201,6 +203,7 @@ toStanExeCmdLine StanExeConfig {..} = unwords
   , maybe "" (\x -> "num_samples=" <> show x) numSamples
   , maybe "" ("data file=" <>) inputData
   , maybe "" ("output file=" <>) output
+  , maybe "" ("diagnostic_file=" <>) diagnosticFile
   , maybe "" initializationToCmdLine initialValues
   , maybe "" (\x -> "random=" <> show x) randomSeed
   , maybe "" (\x -> "refresh=" <> show x) refreshInterval
@@ -214,40 +217,8 @@ stan exeFilePath config =
 readOptimizeCsv :: FilePath -> IO (Either String (Map String Double))
 readOptimizeCsv = singleRowCsv
 
-skipHash :: Handle -> IO ()
-skipHash theHandle = fix $ \next -> do
-  -- no peek so I make my own
-  originalPos <- hGetPosn theHandle
-  currentChar <- hGetChar theHandle
-  hSetPosn originalPos
-  when (currentChar == '#') $ do
-    _ <- hGetLine theHandle
-    next
-
-skipUntil :: Char -> Handle -> IO ()
-skipUntil theChar theHandle = fix $ \next -> do
-  currentChar <- hGetChar theHandle
-  unless (currentChar == theChar) next
-
-copyUntil :: Char -> Handle -> Handle -> IO ()
-copyUntil theChar inputHandle outputHandle = fix $ \next -> do
-  currentChar <- hGetChar inputHandle
-  hPutChar outputHandle currentChar
-  unless (currentChar == theChar) next
-
-copyLineAfterComma :: Handle -> Handle -> IO ()
-copyLineAfterComma inputFile outputFile = do
-  skipUntil ',' inputFile
-  copyUntil '\n' inputFile outputFile
-
--- Skip until not #
--- Skip until ','
--- copy the rest of the line
--- Skip until ','
--- copy the rest of the line
--- done
+-- wrong
 optimizeCsvToInitialValues :: FilePath -> FilePath -> IO ()
-optimizeCsvToInitialValues inputCsv outputCsv = withFile outputCsv WriteMode $ \outputFile -> do
-  withFile inputCsv ReadMode $ \inputFile -> do
-    skipHash inputFile
-    replicateM_ 2 $ copyLineAfterComma inputFile outputFile
+optimizeCsvToInitialValues inputCsv outputJson = do
+  theMap <- either (throwIO . userError) pure =<< readOptimizeCsv inputCsv
+  A.encodeFile outputJson theMap
