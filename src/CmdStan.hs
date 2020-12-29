@@ -27,6 +27,7 @@ module CmdStan
   -- * diagnose
   , diagnose
   , readOptimizeCsv
+  , readLastLine
   , optimizeCsvToInitialValues
   ) where
 import System.Process

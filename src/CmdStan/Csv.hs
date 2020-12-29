@@ -20,18 +20,77 @@ parseNamedRecordAsDoubles x = do
 
 singleRowCsv :: FilePath -> IO (Either String (Map String Double))
 singleRowCsv filePath
-  = fmap (fmap snd) $ foldCsvWithHeader parseNamedRecordAsDoubles filePath mempty $ \acc xs -> pure $ foldr (<>) acc xs
+  = fmap (fmap snd)
+  $ foldCsvWithHeader parseNamedRecordAsDoubles filePath mempty
+  $ \acc xs -> pure
+    $ foldr (<>) acc xs
+
+seekUntilNewline :: Handle -> Integer -> IO Integer
+seekUntilNewline handle fileSize = do
+
+  let go offset
+        | offset == fileSize = pure offset
+        | otherwise = do
+          hSeek handle SeekFromEnd offset
+
+          B.hGet handle 1 >>= \case
+            "\n" -> do
+              putStrLn "found newline"
+              pure offset
+            _    -> go (offset - 1)
+
+  go (-2)
+
+-- TODO need to make a parser that can do the following
+-- Reads the header
+-- Skips to last line
+--
+
+readLastLine :: FilePath -> IO (Either String (Map String Double))
+readLastLine filePath = withFile filePath ReadMode $ \csvFile -> do
+  let headerHandler :: HeaderParser (Parser (Map String Double)) -> IO (Either String (Map String Double))
+      headerHandler = \case
+        FailH _ errMsg -> pure $ Left errMsg
+        PartialH more -> headerHandler =<< feed more
+        DoneH _ parser -> do
+          e <- parseLastLine parser
+          pure e
+
+      parseLastLine :: Parser (Map String Double)
+                    -> IO (Either String (Map String Double))
+      parseLastLine = \case
+        Fail _ errMsg -> pure $ Left errMsg
+        Many rs k    -> do
+         case sequence rs of
+           Left err -> pure $ Left err
+           Right [] -> do
+            fileSize <- hFileSize csvFile
+
+            _ <- seekUntilNewline csvFile fileSize
+            line <- B.hGetLine csvFile
+            print line
+            parseLastLine $ k $ B.snoc line 10
+           Right [x] -> pure $ pure x
 
 
-{-
-singleRowCsv :: FilePath -> IO (Either String (Map String Double))
-singleRowCsv filePath = fmap (fmap snd) $ foldCsvWithHeader parseNamedRecordAsDoubles filePath mempty $ \acc xs -> case xs of
-  [] -> throwIO $ userError "singleRowCsv called on zero row "
-  [x] -> pure x
-  x:xs
-   | all M.null xs -> pure x
-   | otherwise -> throwIO $ userError $ "singleRowCsv called with more than one row: " ++ show xs
--}
+        Done [r] -> pure r
+        Done xs -> error $ "readLastLine: Unexpected number of results " ++ show xs
+
+      feed k = do
+          isEof <- hIsEOF csvFile
+          if isEof
+              then return $ k B.empty
+              else do
+                bsLine <- B.hGetLine csvFile
+                case B.uncons bsLine of
+                  Just (w, _) ->
+                    if w == 35 then
+                      feed k
+                    else
+                      pure $ k $ B.snoc bsLine 10
+                  Nothing -> pure $ k B.empty
+
+  headerHandler (decodeByNameWithP parseNamedRecordAsDoubles C.defaultDecodeOptions)
 
 foldCsvWithHeader :: forall a r.
     (C.NamedRecord -> C.Parser a)

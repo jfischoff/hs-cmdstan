@@ -14,4 +14,5 @@ main = do
     pure $ fromMaybe (error "impossible") $ output config
 
   -- Review the results
-  either (throwIO . userError) (putStrLn . unparsed) =<< stansummary (makeDefaultSummaryConfig outputFiles)
+  either (throwIO . userError) (putStrLn . unparsed) =<<
+    stansummary (makeDefaultSummaryConfig outputFiles)

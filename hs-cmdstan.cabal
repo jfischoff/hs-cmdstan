@@ -41,6 +41,7 @@ library
                     , QuasiQuotes
                     , TupleSections
                     , ScopedTypeVariables
+                    , OverloadedStrings
   ghc-options: -Wall
   build-depends:
       base >=4.7 && <5
