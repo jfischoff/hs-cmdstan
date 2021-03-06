@@ -3,6 +3,7 @@ import CmdStan.Types
 import Data.List
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Control.Monad
@@ -58,7 +59,7 @@ parseSignificantDigits :: Parsec String String Int
 parseSignificantDigits = do
   void $ string "Significant digits: "
   L.decimal
-  
+
 -- Input file: output.csv
 parseInputFiles :: Parsec String String [FilePath]
 parseInputFiles = do
@@ -244,7 +245,7 @@ Displaying the autocorrelations for chain 1:
 parseStanSummary :: String -> Either String StanSummary
 parseStanSummary input = left show $ parse theParser "" input where
   theParser = do
-    inputFiles     <- parseInputFiles <?> "Parse Input Files"
+    inputFiles     <- fromMaybe [] <$> (optional parseInputFiles <?> "Parse Input Files")
     space
     _              <- optional parseSignificantDigits
     space
