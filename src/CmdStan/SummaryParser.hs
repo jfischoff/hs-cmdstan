@@ -3,6 +3,7 @@ import CmdStan.Types
 import Data.List
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Control.Monad
@@ -42,6 +43,7 @@ energy__         7.7  4.8e-02  9.8e-01    6.8   7.4   9.7  4.2e+02  2.5e+04  1.0
 
 theta           0.25  5.8e-03     0.12  0.077  0.23  0.45      401    23611      1.0
 
+
 Samples were drawn using hmc with nuts.
 For each parameter, N_Eff is a crude measure of effective sample size,
 and R_hat is the potential scale reduction factor on split chains (at
@@ -58,7 +60,7 @@ parseSignificantDigits :: Parsec String String Int
 parseSignificantDigits = do
   void $ string "Significant digits: "
   L.decimal
-  
+
 -- Input file: output.csv
 parseInputFiles :: Parsec String String [FilePath]
 parseInputFiles = do
@@ -243,7 +245,7 @@ Displaying the autocorrelations for chain 1:
 parseStanSummary :: String -> Either String StanSummary
 parseStanSummary input = left show $ parse theParser "" input where
   theParser = do
-    inputFiles     <- parseInputFiles <?> "Parse Input Files"
+    inputFiles     <- fromMaybe [] <$> (optional parseInputFiles <?> "Parse Input Files")
     space
     _              <- optional parseSignificantDigits
     space
