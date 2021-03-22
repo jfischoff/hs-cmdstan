@@ -99,9 +99,9 @@ data StansummaryConfig = StansummaryConfig
   } deriving (Show, Eq, Ord, Generic)
 
 data Method
-  = Sample { diagnosticFile :: Maybe FilePath }
+  = Sample
   | Optimize
-  | Variational { diagnosticFile :: Maybe FilePath }
+  | Variational
   | GenerateQuantities
   | Diagnose
   deriving (Show, Eq, Ord, Generic)
@@ -128,6 +128,9 @@ data StanExeConfig = StanExeConfig
   , processId       :: Maybe Int
   , numSamples      :: Maybe Int
   , numWarmup       :: Maybe Int
+  , adaptDelta      :: Maybe Double
+  , algorithm       :: Maybe String
+  , diagnosticFile  :: Maybe FilePath
   } deriving (Show, Eq, Ord, Generic)
 
 instance ToJSON StanExeConfig

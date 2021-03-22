@@ -43,6 +43,7 @@ energy__         7.7  4.8e-02  9.8e-01    6.8   7.4   9.7  4.2e+02  2.5e+04  1.0
 
 theta           0.25  5.8e-03     0.12  0.077  0.23  0.45      401    23611      1.0
 
+
 Samples were drawn using hmc with nuts.
 For each parameter, N_Eff is a crude measure of effective sample size,
 and R_hat is the potential scale reduction factor on split chains (at
@@ -174,8 +175,7 @@ parseStatisticMap = fmap Map.fromList $ fix $ \next -> do
 parseSampler :: Parsec String String String
 parseSampler = do
   void $ string "Samples were drawn using "
-  result <- string "hmc with nuts"
-  void $ char '.'
+  result <- someTill (satisfy $ const True) $ char '.'
   pure result
 
 {-

@@ -12,6 +12,7 @@ module CmdStan
   , Initialization (..)
   , StanExeConfig (..)
   , blankSampleConfig
+  , blankOptimizeConfig
   , makeDefaultSample
   , stan
   -- * Summary
@@ -24,12 +25,14 @@ module CmdStan
   , useCmdStanDirForStansummary
   , stansummary
   , summaryCsvParser
-  -- * diagnose  
+  -- * diagnose
   , diagnose
-  -- * DELETE ME
   , stansummaryConfigToCmdLine
   , toStanExeCmdLine
   , makeConfigToCmdLine
+  , readOptimizeCsv
+  , readLastLine
+  , optimizeCsvToInitialValues
   ) where
 import System.Process
 import System.Exit
@@ -38,10 +41,13 @@ import System.FilePath.Posix
 import Control.Exception
 import System.IO
 import Control.Monad
+import CmdStan.Csv
 import CmdStan.SummaryParser
 import CmdStan.Types
 import System.Directory
 import System.Environment
+import Data.Map.Strict (Map)
+import qualified Data.Aeson as A
 
 throwWhenExitFailure :: ExitCode -> IO ()
 throwWhenExitFailure = \case
@@ -125,7 +131,7 @@ useCmdStanDirForStansummary s = do
   cmdStanDir <- maybe (throwIO $ userError "CMDSTAN_DIR not defined") pure =<<
     lookupEnv "CMDSTAN_DIR"
   return $ s { exePath = Just $ cmdStanDir ++ "/bin/stansummary" }
-    
+
 
 stansummaryConfigToCmdLine :: StansummaryConfig -> [String]
 stansummaryConfigToCmdLine StansummaryConfig {..} =
@@ -136,23 +142,23 @@ stansummaryConfigToCmdLine StansummaryConfig {..} =
   , maybe "" (\x -> "--sig_figs=" <> show x) sigFigs
   ] ++ sampleFiles
 
-stansummary :: StansummaryConfig -> IO StanSummary
+stansummary :: StansummaryConfig -> IO (Either String StanSummary)
 stansummary config = do
-  let path = maybe "stansummary" id (exePath config) 
+  let path = maybe "stansummary" id (exePath config)
   (exitCode, output, err) <- readProcessWithExitCode path (stansummaryConfigToCmdLine config) ""
   hPutStrLn stderr err
   case exitCode of
     ExitFailure {} -> throwIO exitCode
-    ExitSuccess {} -> either (throwIO . userError) pure $ parseStanSummary output
+    ExitSuccess {} -> pure $ parseStanSummary output
 
 diagnose :: [FilePath] -> IO ()
 diagnose sampleFilePaths = throwWhenExitFailure =<< system ("diagnose " <> unwords sampleFilePaths)
 
 methodToCmdLine :: Method -> String
 methodToCmdLine = \case
-  Sample { .. } -> "sample" ++ maybe "" (" diagnostic_file=" <>) diagnosticFile
+  Sample -> "sample"
   Optimize -> "optimize"
-  Variational { .. } ->  "variational" ++ maybe "" ("diagnostic_file=" <>) diagnosticFile
+  Variational  ->  "variational"
   GenerateQuantities -> "generate_quantities"
   Diagnose -> "diagnose"
 
@@ -162,9 +168,9 @@ initializationToCmdLine x = "init=" <> case x of
   IZero -> "0"
   IFilePath filePath -> filePath
 
-blankSampleConfig :: StanExeConfig
-blankSampleConfig = StanExeConfig
-  { method          = Sample Nothing
+blankOptimizeConfig :: StanExeConfig
+blankOptimizeConfig = StanExeConfig
+  { method          = Optimize
   , inputData       = Nothing
   , output          = Nothing
   , initialValues   = Nothing
@@ -173,11 +179,30 @@ blankSampleConfig = StanExeConfig
   , processId       = Nothing
   , numSamples      = Nothing
   , numWarmup       = Nothing
+  , adaptDelta      = Nothing
+  , algorithm       = Nothing
+  , diagnosticFile  = Nothing
+  }
+
+blankSampleConfig :: StanExeConfig
+blankSampleConfig = StanExeConfig
+  { method          = Sample
+  , inputData       = Nothing
+  , output          = Nothing
+  , initialValues   = Nothing
+  , randomSeed      = Nothing
+  , refreshInterval = Nothing
+  , processId       = Nothing
+  , numSamples      = Nothing
+  , numWarmup       = Nothing
+  , adaptDelta      = Nothing
+  , algorithm       = Nothing
+  , diagnosticFile  = Nothing
   }
 
 makeDefaultSample :: FilePath -> Int -> StanExeConfig
 makeDefaultSample rootPath chainIndex = StanExeConfig
-  { method          = Sample Nothing
+  { method          = Sample
   , inputData       = Just $ rootPath <.> "json"
   , output          = Just $ rootPath <> "_" <> show chainIndex <.> "csv"
   , initialValues   = Nothing
@@ -185,16 +210,22 @@ makeDefaultSample rootPath chainIndex = StanExeConfig
   , refreshInterval = Nothing
   , numSamples      = Nothing
   , numWarmup       = Nothing
+  , adaptDelta      = Nothing
   , processId       = Just chainIndex
+  , algorithm       = Nothing
+  , diagnosticFile  = Nothing
   }
 
 toStanExeCmdLine :: StanExeConfig -> String
 toStanExeCmdLine StanExeConfig {..} = unwords
   [ methodToCmdLine method
+  , maybe "" (\x -> "algorithm=" <> show x) algorithm
   , maybe "" (\x -> "num_samples=" <> show x) numSamples
   , maybe "" (\x -> "num_warmup=" <> show x) numWarmup
+  , maybe "" (\x -> "adapt delta=" <> show x) adaptDelta
   , maybe "" ("data file=" <>) inputData
   , maybe "" ("output file=" <>) output
+  , maybe "" ("diagnostic_file=" <>) diagnosticFile
   , maybe "" initializationToCmdLine initialValues
   , maybe "" (\x -> "random=" <> show x) randomSeed
   , maybe "" (\x -> "refresh=" <> show x) refreshInterval
@@ -204,3 +235,12 @@ toStanExeCmdLine StanExeConfig {..} = unwords
 stan :: FilePath -> StanExeConfig -> IO ()
 stan exeFilePath config =
   throwWhenExitFailure =<< system (exeFilePath <> " " <> toStanExeCmdLine config)
+
+readOptimizeCsv :: FilePath -> IO (Either String (Map String Double))
+readOptimizeCsv = singleRowCsv
+
+-- wrong
+optimizeCsvToInitialValues :: FilePath -> FilePath -> IO ()
+optimizeCsvToInitialValues inputCsv outputJson = do
+  theMap <- either (throwIO . userError) pure =<< readOptimizeCsv inputCsv
+  A.encodeFile outputJson theMap

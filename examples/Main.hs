@@ -1,6 +1,7 @@
 import CmdStan
 import Control.Concurrent.Async
 import Data.Maybe
+import Control.Exception
 
 main :: IO ()
 main = do
@@ -13,4 +14,5 @@ main = do
     pure $ fromMaybe (error "impossible") $ output config
 
   -- Review the results
-  putStrLn . unparsed =<< stansummary (makeDefaultSummaryConfig outputFiles)
+  either (throwIO . userError) (putStrLn . unparsed) =<<
+    stansummary (makeDefaultSummaryConfig outputFiles)
