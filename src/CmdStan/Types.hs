@@ -95,6 +95,7 @@ data StansummaryConfig = StansummaryConfig
   , csvFilePath :: Maybe FilePath
   , percentiles :: [Int]
   , sigFigs     :: Maybe Int
+  , exePath     :: Maybe FilePath
   } deriving (Show, Eq, Ord, Generic)
 
 data Method
@@ -126,6 +127,8 @@ data StanExeConfig = StanExeConfig
   , refreshInterval :: Maybe Int
   , processId       :: Maybe Int
   , numSamples      :: Maybe Int
+  , numWarmup       :: Maybe Int
+  , adaptDelta      :: Maybe Double
   , algorithm       :: Maybe String
   , diagnosticFile  :: Maybe FilePath
   } deriving (Show, Eq, Ord, Generic)

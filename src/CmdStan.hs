@@ -22,10 +22,14 @@ module CmdStan
   , StanSummary (..)
   , StansummaryConfig (..)
   , makeDefaultSummaryConfig
+  , useCmdStanDirForStansummary
   , stansummary
   , summaryCsvParser
   -- * diagnose
   , diagnose
+  , stansummaryConfigToCmdLine
+  , toStanExeCmdLine
+  , makeConfigToCmdLine
   , readOptimizeCsv
   , readLastLine
   , optimizeCsvToInitialValues
@@ -68,14 +72,14 @@ makeDefaultMakeConfig rootPath = do
 makeConfigToCmdLine :: MakeConfig -> String
 makeConfigToCmdLine MakeConfig {..} = unwords
   [ maybe "" ("USER_HEADER="<>) userHeader
-  , maybe "" (\x -> "STANCFLAGS=\"" <> stancConfigToCmdLine x <> "\"") stancFlags
+  , maybe "" (\x -> "STANCFLAGS=\"" <> stancConfigToCmdLine True x <> "\"") stancFlags
   , "make"
   , maybe "" (\x -> "-j" <> show x) jobCount
   , rootPath
   ]
 
 make :: MakeConfig -> IO ()
-make config@MakeConfig {..} = throwWhenExitFailure <=< withCurrentDirectory cmdStanDir $
+make config@MakeConfig {..} = throwWhenExitFailure <=< withCurrentDirectory cmdStanDir $ do
   system $ makeConfigToCmdLine config
 
 makeDefaultStancConfig :: FilePath -> StancConfig
@@ -93,9 +97,9 @@ makeDefaultStancConfig modelFilePath = StancConfig
   , warnUnitialized = False
   }
 
-stancConfigToCmdLine :: StancConfig -> FilePath
-stancConfigToCmdLine StancConfig {..} = unwords
-  [ "stanc"
+stancConfigToCmdLine :: Bool -> StancConfig -> FilePath
+stancConfigToCmdLine forMake StancConfig {..} = unwords
+  [ if not forMake then "stanc" else ""
   , maybe "" ("--name=" <>) modelName
   , "--o=" <> outputCppFile
   , if allowUndefined then "--allow-undefined" else ""
@@ -106,11 +110,11 @@ stancConfigToCmdLine StancConfig {..} = unwords
   , if printCpp then "--print-cpp" else ""
   , if allOptimization then "--O" else ""
   , if warnUnitialized then "--warn-uninitialized" else ""
-  , modelFilePath
+  , if not forMake then modelFilePath else ""
   ]
 
 stanc :: StancConfig -> IO ()
-stanc = throwWhenExitFailure <=< system . stancConfigToCmdLine
+stanc = throwWhenExitFailure <=< system . stancConfigToCmdLine False
 
 makeDefaultSummaryConfig :: [FilePath] -> StansummaryConfig
 makeDefaultSummaryConfig files = StansummaryConfig
@@ -119,7 +123,15 @@ makeDefaultSummaryConfig files = StansummaryConfig
   , csvFilePath = Nothing
   , percentiles = [5, 50, 95]
   , sigFigs     = Nothing
+  , exePath     = Nothing
   }
+
+useCmdStanDirForStansummary :: StansummaryConfig -> IO StansummaryConfig
+useCmdStanDirForStansummary s = do
+  cmdStanDir <- maybe (throwIO $ userError "CMDSTAN_DIR not defined") pure =<<
+    lookupEnv "CMDSTAN_DIR"
+  return $ s { exePath = Just $ cmdStanDir ++ "/bin/stansummary" }
+
 
 stansummaryConfigToCmdLine :: StansummaryConfig -> [String]
 stansummaryConfigToCmdLine StansummaryConfig {..} =
@@ -132,7 +144,8 @@ stansummaryConfigToCmdLine StansummaryConfig {..} =
 
 stansummary :: StansummaryConfig -> IO (Either String StanSummary)
 stansummary config = do
-  (exitCode, output, err) <- readProcessWithExitCode "stansummary" (stansummaryConfigToCmdLine config) ""
+  let path = maybe "stansummary" id (exePath config)
+  (exitCode, output, err) <- readProcessWithExitCode path (stansummaryConfigToCmdLine config) ""
   hPutStrLn stderr err
   case exitCode of
     ExitFailure {} -> throwIO exitCode
@@ -165,6 +178,8 @@ blankOptimizeConfig = StanExeConfig
   , refreshInterval = Nothing
   , processId       = Nothing
   , numSamples      = Nothing
+  , numWarmup       = Nothing
+  , adaptDelta      = Nothing
   , algorithm       = Nothing
   , diagnosticFile  = Nothing
   }
@@ -179,6 +194,8 @@ blankSampleConfig = StanExeConfig
   , refreshInterval = Nothing
   , processId       = Nothing
   , numSamples      = Nothing
+  , numWarmup       = Nothing
+  , adaptDelta      = Nothing
   , algorithm       = Nothing
   , diagnosticFile  = Nothing
   }
@@ -192,6 +209,8 @@ makeDefaultSample rootPath chainIndex = StanExeConfig
   , randomSeed      = Nothing
   , refreshInterval = Nothing
   , numSamples      = Nothing
+  , numWarmup       = Nothing
+  , adaptDelta      = Nothing
   , processId       = Just chainIndex
   , algorithm       = Nothing
   , diagnosticFile  = Nothing
@@ -202,6 +221,8 @@ toStanExeCmdLine StanExeConfig {..} = unwords
   [ methodToCmdLine method
   , maybe "" (\x -> "algorithm=" <> show x) algorithm
   , maybe "" (\x -> "num_samples=" <> show x) numSamples
+  , maybe "" (\x -> "num_warmup=" <> show x) numWarmup
+  , maybe "" (\x -> "adapt delta=" <> show x) adaptDelta
   , maybe "" ("data file=" <>) inputData
   , maybe "" ("output file=" <>) output
   , maybe "" ("diagnostic_file=" <>) diagnosticFile
